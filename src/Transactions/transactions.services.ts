@@ -32,44 +32,12 @@ export class TransactionsService {
   }
 
   create(transaction: CreateTransactionEntryDto): Transaction {
-    const isValid = this.validateTransaction(transaction);
-
-    if (!isValid) {
-      throw new BadRequestException('Invalid transaction data.');
-    }
-    // should throw BadRequestException for zero entry amount
-    if (
-      transaction.id &&
-      this.transactions.find((t) => t.id === transaction.id)
-    ) {
-      throw new BadRequestException('Transaction with this ID already exists.');
-    }
-
-    if (!this.accountsExist(transaction)) {
-      throw new BadRequestException('One or more accounts do not exist.');
-    }
-
-    if (!this.accountEntriesAreDifferentAccounts(transaction as Transaction)) {
+    try {
+      this.validateTransaction(transaction);
+    } catch (error) {
       throw new BadRequestException(
-        'Transaction entries cannot be on the same account.',
+        `Transaction validation failed: ${error.message}`,
       );
-    }
-
-    // Ensure all referenced accounts exist
-    for (const entry of transaction.entries) {
-      try {
-        const test = this.accountsService.get(entry.account_id);
-
-        const accountExists = !!test;
-        if (!accountExists) {
-          throw new BadRequestException('One or more accounts do not exist.');
-        }
-      } catch (error) {
-        console.log(
-          `Account with id: ${entry.account_id} does not exist. Rejecting transaction. ${error}`,
-        );
-        throw new BadRequestException('One or more accounts do not exist.');
-      }
     }
 
     // All validations passed, proceed to create transaction
@@ -79,7 +47,9 @@ export class TransactionsService {
     };
 
     // Only now call processTransaction and push
-    this.accountsService.processTransaction(transactionToCreate, this);
+    this.accountsService.processTransaction(transactionToCreate, {
+      validateTransaction: this.validateTransaction.bind(this),
+    });
 
     this.transactions.push(transactionToCreate);
 
@@ -121,47 +91,47 @@ export class TransactionsService {
     return newTransaction;
   }
 
-  validateTransaction(transaction: CreateTransactionEntryDto): boolean {
-    if (!this.validateTransactionEntries(transaction.entries)) {
-      console.log(
-        `Transaction entries are invalid for transaction id: ${transaction.id}`,
-      );
-      return false; // or throw an exception?
-    }
-
+  public validateTransaction(transaction: CreateTransactionEntryDto): void {
+    // 1. Validate the transaction's existence (idempotency check).
+    // This is the first and most critical check.
     const existingTransaction = this.transactions.find(
       (t) => t.id === transaction.id,
     );
     if (existingTransaction) {
-      console.log(
-        `Transaction with id: ${transaction.id} already exists. Rejecting to ensure idempotency.`,
-      );
-      return false; // or throw an exception?
+      throw new BadRequestException('Transaction with this ID already exists.');
     }
 
-    if (this.transactionEntriesAreSameAccount(transaction as Transaction)) {
-      console.log(
-        `Transaction entries cannot be on the same account for transaction id: ${transaction.id}`,
-      );
-      return false; // or throw an exception?
-    }
+    // 2. Validate the integrity and balance of the transaction entries.
+    // This method will throw an exception if entries are invalid.
+    this.validateTransactionEntries(transaction.entries);
 
-    console.log(
-      `Transaction with id: ${transaction.id} is valid and can be processed.`,
-    );
-    return true;
+    // 3. Ensure all accounts referenced in the transaction exist.
+    this.ensureAccountsExist(transaction.entries);
   }
 
-  validateTransactionEntries(entries: TransactionEntry[]): boolean {
-    console.log('Validating transaction entries');
-    // A valid transaction must have equal total credits and debits
-    // Basically the sum of all credit entries must equal
-    // the sum of all debit entries
-    const lengthIsValid = entries.length >= 2;
+  /**
+   * Validates the entries within a transaction.
+   * Checks for balance, positive amounts, and unique accounts.
+   * @param entries The array of transaction entries.
+   */
+  public validateTransactionEntries(entries: TransactionEntry[]): void {
+    if (!entries || entries.length < 2) {
+      throw new BadRequestException(
+        'A transaction must have at least two entries.',
+      );
+    }
 
-    if (!lengthIsValid) {
-      console.log('Transaction must have at least two entries to be valid');
-      return false;
+    const accountIds = new Set(entries.map((entry) => entry.account_id));
+    if (accountIds.size < entries.length) {
+      throw new BadRequestException(
+        'Transaction entries cannot be on the same account.',
+      );
+    }
+
+    if (entries.some((entry) => entry.amount <= 0)) {
+      throw new BadRequestException(
+        'Transaction entries must have amounts greater than zero.',
+      );
     }
 
     const totalCredit = entries
@@ -173,24 +143,24 @@ export class TransactionsService {
       .reduce((sum, entry) => sum + entry.amount, 0);
 
     if (totalCredit !== totalDebit) {
-      console.log(
+      throw new BadRequestException(
         `Transaction entries are not balanced: totalCredit=${totalCredit}, totalDebit=${totalDebit}`,
       );
-      return false;
     }
-
-    if (entries.some((entry) => entry.amount <= 0)) {
-      console.log('Transaction entries must have amounts greater than zero');
-      return false;
-    }
-
-    return totalCredit === totalDebit;
   }
 
-  transactionEntriesAreSameAccount(transaction: Transaction) {
-    const account1 = transaction.entries[0].account_id;
-    const account2 = transaction.entries[1].account_id;
-
-    return account1 === account2;
+  /**
+   * Ensures all accounts specified in the transaction entries exist.
+   * @param entries The array of transaction entries.
+   */
+  private ensureAccountsExist(entries: TransactionEntry[]): void {
+    for (const entry of entries) {
+      const account = this.accountsService.get(entry.account_id);
+      if (!account) {
+        throw new BadRequestException(
+          `Account with ID '${entry.account_id}' does not exist.`,
+        );
+      }
+    }
   }
 }

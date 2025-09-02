@@ -106,7 +106,6 @@ describe('TransactionsController', () => {
       const result = controller.createTransaction(validData);
 
       expect(transactionsServiceMock.create).toHaveBeenCalledWith(validData);
-      // expect(accountsServiceMock.processTransaction).toHaveBeenCalled();
       expect(!!result).toBe(true);
     });
 

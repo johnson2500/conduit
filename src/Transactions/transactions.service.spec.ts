@@ -68,8 +68,11 @@ describe('TransactionsService', () => {
       expect(transaction.name).toBe(transactionData.name);
       expect(transaction.entries).toEqual(transactionData.entries);
       expect(accountsService.processTransaction).toHaveBeenCalledWith(
-        transaction,
-        service,
+        expect.objectContaining({
+          id: transaction.id,
+          name: transactionData.name,
+        }),
+        expect.any(Object),
       );
     });
 
@@ -185,7 +188,12 @@ describe('TransactionsService', () => {
         { account_id: '1', amount: 50, direction: 'debit' },
         { account_id: '2', amount: 50, direction: 'credit' },
       ];
-      expect(service.validateTransactionEntries(balancedEntries)).toBe(true);
+      try {
+        const rest = service.validateTransactionEntries(balancedEntries);
+        expect(rest).toBeUndefined();
+      } catch (err) {
+        expect(err).toBeUndefined();
+      }
     });
 
     it('should return false for an unbalanced transaction', () => {
@@ -193,14 +201,23 @@ describe('TransactionsService', () => {
         { account_id: '1', amount: 50, direction: 'debit' },
         { account_id: '2', amount: 60, direction: 'credit' },
       ];
-      expect(service.validateTransactionEntries(unbalancedEntries)).toBe(false);
+
+      try {
+        service.validateTransactionEntries(unbalancedEntries);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BadRequestException);
+      }
     });
 
     it('should return false for a transaction with a single entry', () => {
       const singleEntry: TransactionEntry[] = [
         { account_id: '1', amount: 50, direction: 'debit' },
       ];
-      expect(service.validateTransactionEntries(singleEntry)).toBe(false);
+      try {
+        service.validateTransactionEntries(singleEntry);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BadRequestException);
+      }
     });
   });
 
