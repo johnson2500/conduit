@@ -32,9 +32,12 @@ export class TransactionsService {
   }
 
   create(transaction: CreateTransactionEntryDto): Transaction {
-    console.log('Creating new transaction');
+    const isValid = this.validateTransaction(transaction);
 
-    // Check for duplicate ID (idempotency)
+    if (!isValid) {
+      throw new BadRequestException('Invalid transaction data.');
+    }
+    // should throw BadRequestException for zero entry amount
     if (
       transaction.id &&
       this.transactions.find((t) => t.id === transaction.id)
@@ -46,10 +49,21 @@ export class TransactionsService {
       throw new BadRequestException('One or more accounts do not exist.');
     }
 
+    if (!this.accountEntriesAreDifferentAccounts(transaction as Transaction)) {
+      throw new BadRequestException(
+        'Transaction entries cannot be on the same account.',
+      );
+    }
+
     // Ensure all referenced accounts exist
     for (const entry of transaction.entries) {
       try {
-        this.accountsService.get(entry.account_id);
+        const test = this.accountsService.get(entry.account_id);
+
+        const accountExists = !!test;
+        if (!accountExists) {
+          throw new BadRequestException('One or more accounts do not exist.');
+        }
       } catch (error) {
         console.log(
           `Account with id: ${entry.account_id} does not exist. Rejecting transaction. ${error}`,
@@ -65,11 +79,18 @@ export class TransactionsService {
     };
 
     // Only now call processTransaction and push
-    this.accountsService.processTransaction(transactionToCreate);
+    this.accountsService.processTransaction(transactionToCreate, this);
 
     this.transactions.push(transactionToCreate);
 
     return transactionToCreate;
+  }
+
+  accountEntriesAreDifferentAccounts(transaction: Transaction) {
+    const accountIds = transaction.entries.map((entry) => entry.account_id);
+    const uniqueAccountIds = new Set(accountIds);
+
+    return uniqueAccountIds.size === accountIds.length;
   }
 
   accountsExist(transaction: CreateTransactionEntryDto): boolean {
@@ -77,17 +98,14 @@ export class TransactionsService {
     for (const entry of transaction.entries) {
       try {
         const account = this.accountsService.get(entry.account_id);
-        if (!account) {
-          return false;
-        }
+        if (!account) return false;
       } catch (error) {
         console.log(
           `Account with id: ${entry.account_id} does not exist. ${error}`,
         );
-        return true;
       }
     }
-    return false;
+    return true;
   }
 
   addTransactionEntry(entry: AddTransactionEntryType): Transaction {
@@ -104,26 +122,33 @@ export class TransactionsService {
   }
 
   validateTransaction(transaction: CreateTransactionEntryDto): boolean {
-    const entriesValid = this.validateTransactionEntries(transaction.entries);
-
-    if (!entriesValid) {
+    if (!this.validateTransactionEntries(transaction.entries)) {
       console.log(
         `Transaction entries are invalid for transaction id: ${transaction.id}`,
       );
-      return false;
+      return false; // or throw an exception?
     }
 
-    const transactionExists = this.transactions.find(
+    const existingTransaction = this.transactions.find(
       (t) => t.id === transaction.id,
     );
-
-    if (transactionExists) {
+    if (existingTransaction) {
       console.log(
         `Transaction with id: ${transaction.id} already exists. Rejecting to ensure idempotency.`,
       );
-      return false;
+      return false; // or throw an exception?
     }
 
+    if (this.transactionEntriesAreSameAccount(transaction as Transaction)) {
+      console.log(
+        `Transaction entries cannot be on the same account for transaction id: ${transaction.id}`,
+      );
+      return false; // or throw an exception?
+    }
+
+    console.log(
+      `Transaction with id: ${transaction.id} is valid and can be processed.`,
+    );
     return true;
   }
 
@@ -154,6 +179,18 @@ export class TransactionsService {
       return false;
     }
 
+    if (entries.some((entry) => entry.amount <= 0)) {
+      console.log('Transaction entries must have amounts greater than zero');
+      return false;
+    }
+
     return totalCredit === totalDebit;
+  }
+
+  transactionEntriesAreSameAccount(transaction: Transaction) {
+    const account1 = transaction.entries[0].account_id;
+    const account2 = transaction.entries[1].account_id;
+
+    return account1 === account2;
   }
 }

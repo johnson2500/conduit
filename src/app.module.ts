@@ -3,7 +3,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
-  imports: [TransactionsModule, AccountsModule],
+  imports: [AccountsModule, TransactionsModule],
   controllers: [],
   providers: [],
 })

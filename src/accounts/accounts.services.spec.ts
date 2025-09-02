@@ -164,7 +164,7 @@ describe('AccountsService', () => {
         ],
       };
 
-      service.processTransaction(transaction);
+      service.processTransaction(transaction, transactionsServiceMock);
 
       const updatedAccount1 = service.get(createdAccount1.id);
       const updatedAccount2 = service.get(createdAccount2.id);
@@ -202,7 +202,9 @@ describe('AccountsService', () => {
         ],
       };
 
-      expect(() => service.processTransaction(invalidTransaction)).toThrow(
+      expect(() =>
+        service.processTransaction(invalidTransaction, transactionsServiceMock),
+      ).toThrow(
         'Invalid transaction entries. Transaction entries have to sum to zero, and there must be at least 2 entries.',
       );
     });

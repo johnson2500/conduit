@@ -1,10 +1,4 @@
-import {
-  HttpException,
-  Injectable,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common';
-import { TransactionsService } from '../transactions/transactions.services';
+import { HttpException, Injectable, BadRequestException } from '@nestjs/common';
 import { Account, Transaction, Direction } from '../types';
 import { CreateAccountType, UpdateAccountType } from './accounts.dto';
 import { mockAccountData } from '../mockData';
@@ -13,11 +7,7 @@ import { randomUUID } from 'node:crypto';
 @Injectable()
 export class AccountsService {
   private accounts: { [x: string]: Account } = mockAccountData;
-
-  constructor(
-    private readonly transactionService: TransactionsService,
-    private readonly logger: Logger,
-  ) {}
+  // Removed constructor dependency on TransactionsService to break circular dependency
 
   get(id: string): Account {
     const account = this.accounts[id];
@@ -61,10 +51,14 @@ export class AccountsService {
     return newAccountData;
   }
 
-  processTransaction(transaction: Transaction): Account[] {
-    this.logger.log(`Processing transaction with id: ${transaction.id}`);
+  processTransaction(
+    transaction: Transaction,
+    transactionsService: { validateTransaction: (t: Transaction) => boolean },
+  ): Account[] {
+    console.log(`Processing transaction with id: ${transaction.id}`);
     const isValidTransaction =
-      this.transactionService.validateTransaction(transaction);
+      transactionsService.validateTransaction(transaction);
+
     if (!isValidTransaction) {
       throw new HttpException(
         'Invalid transaction entries. Transaction entries have to sum to zero, and there must be at least 2 entries.',

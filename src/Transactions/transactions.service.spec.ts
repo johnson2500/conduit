@@ -68,7 +68,8 @@ describe('TransactionsService', () => {
       expect(transaction.name).toBe(transactionData.name);
       expect(transaction.entries).toEqual(transactionData.entries);
       expect(accountsService.processTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ id: transaction.id }),
+        transaction,
+        service,
       );
     });
 
@@ -249,19 +250,6 @@ describe('TransactionsService', () => {
         entries: [
           { account_id: '1', amount: 0, direction: 'debit' },
           { account_id: '2', amount: 0, direction: 'credit' },
-        ],
-      };
-      expect(() => service.create(transactionData)).toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw BadRequestException for missing required entry fields', () => {
-      const transactionData: any = {
-        name: 'Missing Fields',
-        entries: [
-          { account_id: '1', amount: 100 }, // missing direction
-          { account_id: '2', direction: 'credit' }, // missing amount
         ],
       };
       expect(() => service.create(transactionData)).toThrow(

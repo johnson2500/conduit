@@ -6,7 +6,6 @@ import {
   Post,
   UsePipes,
   ValidationPipe,
-  Logger,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.services';
 import { Account } from '../types';
@@ -14,23 +13,20 @@ import { CreateAccountType } from './accounts.dto';
 
 @Controller('accounts')
 export class AccountsController {
-  constructor(
-    private readonly accountService: AccountsService,
-    private readonly logger: Logger,
-  ) {}
+  constructor(private readonly accountService: AccountsService) {}
 
   @Get('/:id')
   getAccount(@Param('id') id: string): Account {
-    this.logger.log(`Getting account with id: ${id}`);
+    console.log(`Getting account with id: ${id}`);
     return this.accountService.get(id);
   }
 
   @Get('/')
   getAllAccounts(): Account[] {
-    this.logger.log('Getting all accounts');
+    console.log('Getting all accounts');
     const allAccounts = this.accountService.all();
 
-    this.logger.log(`Found ${allAccounts.length} accounts`);
+    console.log(`Found ${allAccounts.length} accounts`);
     return allAccounts;
   }
 
@@ -43,9 +39,9 @@ export class AccountsController {
   )
   @Post('/')
   createAccount(@Body() accountData: CreateAccountType): Account {
-    this.logger.log('Creating account');
+    console.log('Creating account');
     const createdAccount = this.accountService.create(accountData);
-    this.logger.log(`Account created with id: ${createdAccount.id}`);
+    console.log(`Account created with id: ${createdAccount.id}`);
     return createdAccount;
   }
 }
