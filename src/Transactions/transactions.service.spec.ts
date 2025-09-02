@@ -42,7 +42,7 @@ describe('TransactionsService', () => {
 
     service = module.get<TransactionsService>(TransactionsService);
     accountsService = module.get<AccountsService>(AccountsService);
-    // Clear the in-memory store before each test
+
     (service as any).transactions = [];
   });
 
@@ -52,7 +52,6 @@ describe('TransactionsService', () => {
 
   describe('create', () => {
     it('should create a valid transaction and call AccountsService', () => {
-      // Mock the accounts to exist for this test
       jest.spyOn(service, 'accountsExist').mockReturnValue(true);
 
       const transactionData: CreateTransactionEntryDto = {
@@ -202,6 +201,113 @@ describe('TransactionsService', () => {
         { account_id: '1', amount: 50, direction: 'debit' },
       ];
       expect(service.validateTransactionEntries(singleEntry)).toBe(false);
+    });
+  });
+
+  describe('edge cases and validation', () => {
+    it('should auto-generate an id for a transaction if not provided', () => {
+      jest.spyOn(service, 'accountsExist').mockReturnValue(true);
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Auto-ID Transaction',
+        entries: [
+          { account_id: '1', amount: 100, direction: 'debit' },
+          { account_id: '2', amount: 100, direction: 'credit' },
+        ],
+      };
+      const transaction = service.create(transactionData);
+      expect(transaction.id).toBeDefined();
+    });
+
+    it('should throw BadRequestException for invalid entry direction', () => {
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Invalid Direction',
+        entries: [
+          { account_id: '1', amount: 100, direction: 'invalid' as any },
+          { account_id: '2', amount: 100, direction: 'credit' },
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException for negative entry amount', () => {
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Negative Amount',
+        entries: [
+          { account_id: '1', amount: -100, direction: 'debit' },
+          { account_id: '2', amount: 100, direction: 'credit' },
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException for zero entry amount', () => {
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Zero Amount',
+        entries: [
+          { account_id: '1', amount: 0, direction: 'debit' },
+          { account_id: '2', amount: 0, direction: 'credit' },
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException for missing required entry fields', () => {
+      const transactionData: any = {
+        name: 'Missing Fields',
+        entries: [
+          { account_id: '1', amount: 100 }, // missing direction
+          { account_id: '2', direction: 'credit' }, // missing amount
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw BadRequestException for duplicate entry account_ids', () => {
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Duplicate Account IDs',
+        entries: [
+          { account_id: '1', amount: 50, direction: 'debit' },
+          { account_id: '1', amount: 50, direction: 'credit' },
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should allow transactions with more than two entries if balanced', () => {
+      jest.spyOn(service, 'accountsExist').mockReturnValue(true);
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Multi-Entry',
+        entries: [
+          { account_id: '1', amount: 50, direction: 'debit' },
+          { account_id: '2', amount: 30, direction: 'credit' },
+          { account_id: '3', amount: 20, direction: 'credit' },
+        ],
+      };
+      const transaction = service.create(transactionData);
+      expect(transaction.entries.length).toBe(3);
+    });
+
+    it('should throw BadRequestException if any entry references a non-existent account', () => {
+      const transactionData: CreateTransactionEntryDto = {
+        name: 'Nonexistent Account',
+        entries: [
+          { account_id: 'does-not-exist', amount: 100, direction: 'debit' },
+          { account_id: '2', amount: 100, direction: 'credit' },
+        ],
+      };
+      expect(() => service.create(transactionData)).toThrow(
+        BadRequestException,
+      );
     });
   });
 });

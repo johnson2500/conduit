@@ -8,7 +8,6 @@ import {
 import { mockTransactionData } from '../mockData';
 import { AccountsService } from '../accounts/accounts.services';
 import { randomUUID } from 'node:crypto';
-import e from 'express';
 
 @Injectable()
 export class TransactionsService {
