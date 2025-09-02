@@ -111,7 +111,7 @@ describe('TransactionsService', () => {
       expect(() => service.create(dataWithNonExistentAccount)).toThrow(
         BadRequestException,
       );
-      expect(accountsService.processTransaction).not.toHaveBeenCalled(); // The transaction should not be processed
+      expect(accountsService.processTransaction).not.toHaveBeenCalled();
     });
 
     it('should reject a transaction if a provided ID already exists (idempotency)', () => {
@@ -123,7 +123,6 @@ describe('TransactionsService', () => {
           { account_id: '2', amount: 100, direction: 'credit' },
         ],
       };
-      // Manually add a transaction with the same ID to the in-memory store
       (service as any).transactions.push(transactionDataWithId);
 
       expect(() => service.create(transactionDataWithId)).toThrow(
