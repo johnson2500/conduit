@@ -66,8 +66,9 @@ export class AccountsService {
     const isValidTransaction =
       this.transactionService.validateTransaction(transaction);
     if (!isValidTransaction) {
-      throw new Error(
+      throw new HttpException(
         'Invalid transaction entries. Transaction entries have to sum to zero, and there must be at least 2 entries.',
+        400,
       );
     }
 

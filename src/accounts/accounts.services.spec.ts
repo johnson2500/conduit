@@ -180,6 +180,8 @@ describe('AccountsService', () => {
         false,
       );
 
+      transactionsServiceMock.validateTransaction.mockReturnValueOnce(false);
+
       const accountData1: CreateAccountType = {
         name: 'Account 1',
         balance: 1000,

@@ -132,7 +132,9 @@ export class TransactionsService {
     // A valid transaction must have equal total credits and debits
     // Basically the sum of all credit entries must equal
     // the sum of all debit entries
-    if (entries.length < 2) {
+    const lengthIsValid = entries.length >= 2;
+
+    if (!lengthIsValid) {
       console.log('Transaction must have at least two entries to be valid');
       return false;
     }
